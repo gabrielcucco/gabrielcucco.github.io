@@ -1,38 +1,63 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-wMl1o3Gs8hCABViW/KkBpVhErt3+JFuNGr4COBg/JgI='; style-src 'sha256-QcTwmmpo7NkMC5hjpwrmATAaiwtWM45sSR6+PdKbw48='; base-uri 'none'; form-action 'none'">
   <title>Seller Intelligence</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f7fb;
-      color: #183153;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      text-align: center;
-    }
-    main {
-      background: white;
-      padding: 40px;
-      border-radius: 16px;
-      max-width: 460px;
-      box-shadow: 0 4px 25px #00000010;
-    }
+    body { font-family: Arial, sans-serif; background: #f4f7fb; color: #183153; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
+    main { background: white; padding: 40px; border-radius: 16px; max-width: 460px; box-shadow: 0 4px 25px #00000010; }
   </style>
 </head>
 <body>
   <main>
     <h1>Seller Intelligence</h1>
     <p>Assistente de inteligência para e-commerce.</p>
-    <p>Página reservada para autenticação do Mercado Livre.</p>
-    <p>A integração ainda está em desenvolvimento.</p>
+    <p id="status">Página reservada para autenticação do Mercado Livre.</p>
   </main>
+  <script>
+    (function () {
+      'use strict';
+      // Única origem autorizada e único destino possível do código: o serviço local do Seller Intelligence.
+      var EXPECTED_ORIGIN = 'https://gabrielcucco.github.io';
+      var LOCAL_CALLBACK = 'http://127.0.0.1:47615/callback';
+
+      var status = document.getElementById('status');
+      function show(message) { status.textContent = message; }
+
+      var search = window.location.search;
+      if (!search) { return; } // visita comum, sem dados de autorização
+
+      var params = new URLSearchParams(search);
+      // Remove o código da barra de endereços e do histórico antes de qualquer outra ação.
+      window.history.replaceState(null, '', window.location.pathname);
+
+      if (window.top !== window.self) { show('Bloqueado: esta página não pode ser aberta dentro de outra página.'); return; }
+      if (window.location.origin !== EXPECTED_ORIGIN) { show('Bloqueado: endereço de origem inesperado.'); return; }
+
+      function single(name) { var values = params.getAll(name); return values.length === 1 ? values[0] : null; }
+      var state = single('state');
+      if (!state || !/^[A-Za-z0-9_-]{43}$/.test(state)) { show('Bloqueado: parâmetro de segurança (state) ausente ou inválido.'); return; }
+
+      var target;
+      var error = single('error');
+      var code = single('code');
+      if (error !== null) {
+        if (!/^[a-z_]{1,64}$/.test(error)) { error = 'erro_desconhecido'; }
+        target = LOCAL_CALLBACK + '?error=' + encodeURIComponent(error) + '&state=' + encodeURIComponent(state);
+        show('O Mercado Livre não concedeu a autorização. Volte ao Seller Intelligence.');
+      } else if (code !== null && /^TG-[A-Za-z0-9-]{8,256}$/.test(code)) {
+        target = LOCAL_CALLBACK + '?code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state);
+        show('Encaminhando para o Seller Intelligence no seu computador...');
+      } else {
+        show('Bloqueado: código de autorização ausente ou inválido.');
+        return;
+      }
+      // replace(): o endereço com o código não fica no histórico de navegação.
+      window.location.replace(target);
+    })();
+  </script>
 </body>
 </html>
